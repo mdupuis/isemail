@@ -11,12 +11,65 @@ import errno
 import glob
 import os
 import unittest
+from xml.etree import ElementTree
 
 
-def load_xml_tests(filename):
+class IsEmailTestCase(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super(IsEmailTestCase, self).__init__(*args, **kwargs)
+        self._ready = False
+
+    @classmethod
+    def create(cls, filename, test_id, address,
+               comment, category, diagnosis, source, sourcelink):
+        obj = cls('run_test')
+        obj._ready = True
+        obj.filename = filename
+        obj.test_id = test_id
+        obj.address = address
+        obj.comment = comment
+        obj.category = category
+        obj.diagnosis = diagnosis
+        obj.source = source
+        obj.sourcelink = sourcelink
+        return obj
+
+    def id(self):
+        return '{filename} #{test_id}'.format(filename=self.filename,
+                                              test_id=self.test_id)
+
+    def __unicode__(self):
+        return '{address} ({location})'.format(address=self.address,
+                                               location=self.id())
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+
+    def __repr__(self):
+        return str(self)
+
+    def run_test(self):
+        self.assertEqual(
+            'isemail({0!r})'.format(self.address),  # TODO: Use real function
+            self.diagnosis
+        )
+
+
+def load_isemail_tests(filename):
     """Returns a TestSuite for the XML-drives tests in `filename`."""
     suite = unittest.TestSuite()
-    raise NotImplementedError("Can't load {0}".format(filename))
+    root = ElementTree.parse(filename).getroot()
+    for test in root.iter('test'):
+        case = IsEmailTestCase.create(filename=filename,
+                                      test_id=int(test.get('id')),
+                                      address=test.findtext('address'),
+                                      comment=test.findtext('comment'),
+                                      category=test.findtext('category'),
+                                      diagnosis=test.findtext('diagnosis'),
+                                      source=test.findtext('source'),
+                                      sourcelink=test.findtext('sourcelink'))
+        suite.addTest(case)
+        print(case)
     return suite
 
 
@@ -30,7 +83,7 @@ def load_tests(loader, tests, pattern):
     dirname = os.path.dirname(__file__)
     for filename in sorted(glob.glob(os.path.join(dirname, 'tests*.xml'))):
         try:
-            loaded = load_xml_tests(filename=filename)
+            loaded = load_isemail_tests(filename=filename)
         except IOError as e:
             if e.errno == errno.ENOENT:
                 continue        # We must have raced against remove.
